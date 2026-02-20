@@ -8,6 +8,7 @@ www/
 android/build/
 android/app/build/
 android/captures/
+twa-build/
 *.apk
 
 # Android Keys & Config
