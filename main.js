@@ -1156,10 +1156,9 @@ async function playSong(index) {
             setStatus("INVALID YOUTUBE ID");
             return;
         }
-
-        // v4.0: Direct Stream Bypass via Piped API
-        // Instead of using the YouTube Iframe (which is blocked by WebView),
-        // we fetch the direct audio stream URL and play it through <audio>.
+        // v4.1: YouTube Innertube Direct Extraction
+        // Talks DIRECTLY to YouTube's servers — no third-party proxy needed.
+        // Uses the ANDROID client identity to get raw audio stream URLs.
         setStatus(`FETCHING STREAM: ${videoId}`);
         playPauseBtn.textContent = '⏸';
         userWantsToPlay = true;
@@ -1170,69 +1169,91 @@ async function playSong(index) {
             navigator.mediaSession.playbackState = "playing";
         }
 
-        // Piped API instances (fallback chain for reliability)
-        const PIPED_INSTANCES = [
-            'https://pipedapi.kavin.rocks',
-            'https://pipedapi.adminforge.de',
-            'https://pipedapi.in.projectsegfau.lt'
+        const INNERTUBE_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+        const clients = [
+            { name: 'ANDROID', version: '19.09.37', sdk: 30 },
+            { name: 'WEB', version: '2.20240313.05.00' }
         ];
 
         let streamFound = false;
-        for (const apiBase of PIPED_INSTANCES) {
+        for (const client of clients) {
             if (streamFound) break;
             try {
-                setStatus(`TRYING: ${apiBase.split('//')[1]}...`);
-                const response = await fetch(`${apiBase}/streams/${videoId}`, {
-                    signal: AbortSignal.timeout(8000) // 8 second timeout per instance
-                });
+                setStatus(`TRYING ${client.name} CLIENT...`);
+                const body = {
+                    videoId: videoId,
+                    context: {
+                        client: {
+                            clientName: client.name,
+                            clientVersion: client.version,
+                            ...(client.sdk ? { androidSdkVersion: client.sdk } : {}),
+                            hl: 'en', gl: 'US'
+                        }
+                    }
+                };
+
+                const response = await fetch(
+                    `https://music.youtube.com/youtubei/v1/player?key=${INNERTUBE_KEY}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body),
+                        signal: AbortSignal.timeout(10000)
+                    }
+                );
+
                 if (!response.ok) {
-                    console.warn(`Piped ${apiBase} returned ${response.status}`);
+                    console.warn(`Innertube ${client.name} returned ${response.status}`);
                     continue;
                 }
+
                 const data = await response.json();
 
-                // Find the best audio stream (highest bitrate, opus or m4a)
-                if (data.audioStreams && data.audioStreams.length > 0) {
-                    // Sort by bitrate descending, prefer opus/m4a
-                    const sorted = data.audioStreams
-                        .filter(s => s.url && (s.mimeType?.includes('audio') || s.format?.includes('WEBMA') || s.format?.includes('M4A')))
-                        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-
-                    if (sorted.length > 0) {
-                        const bestStream = sorted[0];
-                        setStatus(`STREAM FOUND: ${bestStream.quality || bestStream.bitrate + 'kbps'}`);
-                        debugLog(`Audio stream: ${bestStream.mimeType} @ ${bestStream.bitrate}bps`);
-
-                        // Play through the existing <audio> element
-                        audioElement.src = bestStream.url;
-                        audioElement.play().then(() => {
-                            isPlaying = true;
-                            setStatus("PLAYING (DIRECT STREAM)");
-                            updateMediaSessionPositionState();
-                            startKeepAlive();
-                        }).catch(e => {
-                            setStatus("STREAM PLAY ERROR: " + e.message);
-                            console.error("Direct stream playback error:", e);
-                        });
-
-                        streamFound = true;
-                    }
+                if (data.playabilityStatus?.status !== 'OK') {
+                    setStatus(`YT STATUS: ${data.playabilityStatus?.status || 'UNKNOWN'}`);
+                    console.warn('Playability:', data.playabilityStatus?.reason);
+                    continue;
                 }
 
-                if (!streamFound && data.audioStreams) {
-                    setStatus("NO COMPATIBLE AUDIO STREAM");
-                    debugLog("Available streams: " + JSON.stringify(data.audioStreams.map(s => s.mimeType)));
+                // Extract audio streams from adaptiveFormats
+                const formats = data.streamingData?.adaptiveFormats || [];
+                const audioFormats = formats
+                    .filter(f => f.mimeType && f.mimeType.startsWith('audio/') && f.url)
+                    .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+
+                if (audioFormats.length > 0) {
+                    const best = audioFormats[0];
+                    const kbps = Math.round(best.bitrate / 1000);
+                    setStatus(`STREAM: ${kbps}kbps ${best.mimeType.split(';')[0]}`);
+                    debugLog(`Audio: ${best.mimeType} @ ${best.bitrate}bps via ${client.name}`);
+
+                    // Play through the existing <audio> element
+                    audioElement.src = best.url;
+                    audioElement.play().then(() => {
+                        isPlaying = true;
+                        setStatus(`PLAYING (${kbps}kbps)`);
+                        updateMediaSessionPositionState();
+                        startKeepAlive();
+                    }).catch(e => {
+                        setStatus("PLAY ERROR: " + e.message);
+                        console.error("Stream playback error:", e);
+                    });
+
+                    streamFound = true;
+                } else {
+                    setStatus("NO AUDIO IN RESPONSE");
+                    debugLog("Formats: " + formats.length + ", audio: 0");
                 }
             } catch (e) {
-                console.warn(`Piped instance ${apiBase} failed:`, e.message);
+                console.warn(`Innertube ${client.name} failed:`, e.message);
+                setStatus(`${client.name} FAILED: ${e.message.substring(0, 30)}`);
                 continue;
             }
         }
 
         if (!streamFound) {
-            setStatus("ALL PIPED INSTANCES FAILED - SKIPPING");
-            debugLog("Could not fetch audio stream for: " + videoId);
-            // Auto-skip to next song after a brief pause
+            setStatus("EXTRACTION FAILED - SKIPPING");
+            debugLog("Failed to extract audio for: " + videoId);
             setTimeout(() => nextSong(), 2000);
         }
 
