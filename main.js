@@ -1,4 +1,4 @@
-const DEFAULT_SONGS = [
+﻿const DEFAULT_SONGS = [
     {
         id: 1,
         title: "Welcome to Purelyd",
@@ -471,16 +471,99 @@ function updateAuthUI() {
 function renderSongs() {
     const mainHeading = document.querySelector('.content-area h1');
     if (mainHeading) {
-        if (currentPlaylistId === 'favorites') mainHeading.textContent = 'My Favorites';
-        else if (currentPlaylistId === 'uploads') mainHeading.textContent = 'Subido por mí';
+        if (currentPlaylistId === "favorites") mainHeading.textContent = "Mis Favoritos";
+        else if (currentPlaylistId === "uploads") mainHeading.textContent = "Subido por mí";
         else if (currentPlaylistId) {
             const p = playlists.find(p => p.id === currentPlaylistId);
-            mainHeading.textContent = p ? p.name : 'Playlist';
+            mainHeading.textContent = p ? p.name : "Playlist";
         } else {
-            mainHeading.textContent = 'All Songs (Home)';
+            mainHeading.textContent = searchTerm ? "Resultados" : "Purelyd";
         }
     }
 
+    // HOME VIEW: Show action cards instead of all songs
+    if (!currentPlaylistId && !searchTerm) {
+        const playlistCards = playlists.map(p => `
+            <div class="song-card home-action-card home-playlist-card" data-playlist-id="${p.id}" style="cursor:pointer;">
+                <div class="song-cover" style="background: linear-gradient(135deg, #6C3483, #A569BD); display:flex; align-items:center; justify-content:center; font-size:2.5rem;">&#127925;</div>
+                <div class="song-info">
+                    <div class="song-title" style="font-size:1rem; font-weight:700;">${p.name}</div>
+                    <div class="song-artist">${(p.song_ids || []).length} canciones</div>
+                </div>
+            </div>
+        `).join("");
+
+        songGrid.innerHTML = `
+            <div class="song-card home-action-card" id="home-random" style="cursor:pointer;">
+                <div class="song-cover" style="background: linear-gradient(135deg, #1DB954, #1ed760); display:flex; align-items:center; justify-content:center; font-size:3rem;">&#127922;</div>
+                <div class="song-info">
+                    <div class="song-title" style="font-size:1rem; font-weight:700;">Canción Aleatoria</div>
+                    <div class="song-artist">Sorpréndete</div>
+                </div>
+            </div>
+            <div class="song-card home-action-card" id="home-favorites" style="cursor:pointer;">
+                <div class="song-cover" style="background: linear-gradient(135deg, #e91e63, #f06292); display:flex; align-items:center; justify-content:center; font-size:3rem;">&#10084;&#65039;</div>
+                <div class="song-info">
+                    <div class="song-title" style="font-size:1rem; font-weight:700;">Favoritos</div>
+                    <div class="song-artist">Tus canciones favoritas</div>
+                </div>
+            </div>
+            ${playlistCards}
+        `;
+
+        // Build recommended section
+        let recoSection = "";
+        const userSongs = currentUser ? songs.filter(s => s.username === currentUser.username) : [];
+        if (userSongs.length > 0) {
+            const shuffled = [...userSongs].sort(() => Math.random() - 0.5).slice(0, 5);
+            recoSection = `
+                <div style="grid-column: 1 / -1; margin-top: 20px;">
+                    <h2 style="color: white; font-size: 1.3rem; margin-bottom: 12px;">&#127911; Recomendados</h2>
+                </div>
+            ` + shuffled.map(song => {
+                const realIndex = songs.findIndex(s => s.id === song.id);
+                return `
+                <div class="song-card reco-card" data-index="${realIndex}" style="cursor:pointer;">
+                    <img src="${song.cover || getThumbnail(song)}" alt="${song.title}">
+                    <div class="title">${song.title}</div>
+                    <div class="artist">${song.artist}</div>
+                </div>`;
+            }).join("");
+        }
+        songGrid.innerHTML += recoSection;
+
+        // Attach ALL click handlers AFTER DOM is finalized
+        document.getElementById("home-random").onclick = () => {
+            if (songs.length === 0) return;
+            const randomIndex = Math.floor(Math.random() * songs.length);
+            playSong(randomIndex);
+        };
+        document.querySelectorAll(".home-playlist-card").forEach(card => {
+            card.onclick = async () => {
+                currentPlaylistId = parseInt(card.dataset.playlistId);
+                navHome.classList.remove("active");
+                navUploads.classList.remove("active");
+                navFavorites.classList.remove("active");
+                await loadUserSongs();
+                renderSongs();
+                renderPlaylists();
+            };
+        });
+        document.getElementById("home-favorites").onclick = () => {
+            if (navFavorites) navFavorites.click();
+        };
+        songGrid.querySelectorAll(".reco-card").forEach(card => {
+            card.onclick = () => {
+                const index = parseInt(card.dataset.index);
+                playSong(index);
+            };
+        });
+        toggleSelectBtn.style.display = "none";
+        if (isSelectMode) exitSelectMode();
+        return;
+    }
+
+    // SEARCH / PLAYLIST VIEW: Show songs
     const favIds = currentUser ? (currentUser.favorites || []) : [];
 
     const filteredSongs = songs.filter(song => {
