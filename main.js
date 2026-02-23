@@ -501,6 +501,13 @@ function renderSongs() {
                     <div class="song-artist">Sorpréndete</div>
                 </div>
             </div>
+            <div class="song-card home-action-card" id="home-all" style="cursor:pointer;">
+                <div class="song-cover" style="background: linear-gradient(135deg, #2196F3, #64B5F6); display:flex; align-items:center; justify-content:center; font-size:3rem;">&#128218;</div>
+                <div class="song-info">
+                    <div class="song-title" style="font-size:1rem; font-weight:700;">Ver Todas</div>
+                    <div class="song-artist">Todas las canciones</div>
+                </div>
+            </div>
             <div class="song-card home-action-card" id="home-favorites" style="cursor:pointer;">
                 <div class="song-cover" style="background: linear-gradient(135deg, #e91e63, #f06292); display:flex; align-items:center; justify-content:center; font-size:3rem;">&#10084;&#65039;</div>
                 <div class="song-info">
@@ -538,6 +545,13 @@ function renderSongs() {
             const randomIndex = Math.floor(Math.random() * songs.length);
             playSong(randomIndex);
         };
+        document.getElementById("home-all").onclick = async () => {
+            currentPlaylistId = null;
+            searchTerm = " ";
+            await loadUserSongs();
+            renderSongs();
+            searchTerm = "";
+        };
         document.querySelectorAll(".home-playlist-card").forEach(card => {
             card.onclick = async () => {
                 currentPlaylistId = parseInt(card.dataset.playlistId);
@@ -553,12 +567,16 @@ function renderSongs() {
             if (navFavorites) navFavorites.click();
         };
         songGrid.querySelectorAll(".reco-card").forEach(card => {
-            card.onclick = () => {
-                const index = parseInt(card.dataset.index);
-                playSong(index);
+            card.onclick = async () => {
+                const origIndex = parseInt(card.dataset.index);
+                const songId = songs[origIndex]?.id;
+                currentPlaylistId = "uploads";
+                await loadUserSongs();
+                renderSongs();
+                const newIndex = songs.findIndex(s => s.id === songId);
+                if (newIndex >= 0) playSong(newIndex);
             };
         });
-        toggleSelectBtn.style.display = "none";
         if (isSelectMode) exitSelectMode();
         return;
     }
