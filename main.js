@@ -1535,7 +1535,7 @@ document.addEventListener('visibilitychange', () => {
                     console.log("Bridge safety timeout: forcing resume");
                     nextSong();
                 }
-            }, 4000);
+            }, 1000);
         }
     } else {
         const song = songs[currentSongIndex];
