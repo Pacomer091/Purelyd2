@@ -1255,7 +1255,12 @@ async function playSong(index) {
                     audioElement.src = best.url;
                     audioElement.play().then(() => {
                         isPlaying = true;
+                        userWantsToPlay = true;
                         setStatus(`PLAYING (${kbps}kbps)`);
+                        if ('mediaSession' in navigator) {
+                            updateMediaSession(song);
+                            navigator.mediaSession.playbackState = "playing";
+                        }
                         updateMediaSessionPositionState();
                         startKeepAlive();
                     }).catch(e => {
@@ -1287,6 +1292,11 @@ async function playSong(index) {
         audioElement.src = song.url;
         audioElement.play().then(() => {
             isPlaying = true;
+            userWantsToPlay = true;
+            if ('mediaSession' in navigator) {
+                updateMediaSession(song);
+                navigator.mediaSession.playbackState = "playing";
+            }
             updateMediaSessionPositionState();
             startKeepAlive();
         }).catch(e => {
@@ -1372,7 +1382,6 @@ function initMediaSessionHandlers() {
             console.warn(`The media session action "${action}" is not supported yet.`);
         }
     }
-    navigator.mediaSession.metadata = null;
 }
 
 function updateMediaSessionPositionState() {
@@ -1401,7 +1410,7 @@ function updateMediaSessionPositionState() {
             rate = audioElement.playbackRate || 1;
         }
 
-        if (duration && !isNaN(duration) && duration > 5 && !isNaN(currentTime)) {
+        if (duration && !isNaN(duration) && duration > 0 && !isNaN(currentTime)) {
             try {
                 const safePosition = Math.min(Math.max(0, currentTime), duration);
                 navigator.mediaSession.setPositionState({
