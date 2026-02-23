@@ -237,11 +237,15 @@ function onPlayerStateChange(event) {
     setStatus(states[event.data] || "UNKNOWN");
 
     if (event.data === YT.PlayerState.ENDED) {
-        if (pendingKickstartIndex !== null) {
-            console.log("Bridge ended, resuming original song...");
-            nextSong();
-        } else {
-            nextSong();
+        try {
+            if (pendingKickstartIndex !== null) {
+                console.log("Bridge ended, resuming original song...");
+                nextSong();
+            } else {
+                nextSong();
+            }
+        } catch (e) {
+            console.error("Error in onPlayerStateChange ENDED (APK):", e);
         }
     } else if (event.data === YT.PlayerState.PLAYING) {
         isPlaying = true;
@@ -1381,7 +1385,11 @@ function updateMediaSessionPositionState() {
         let rate = 1;
 
         // Force YouTube stats if bridge is active
-        if (pendingKickstartIndex !== null || (song && song.type === 'youtube' && ytReady)) {
+        if (pendingKickstartIndex !== null) {
+            duration = 3;
+            currentTime = ytPlayer.getCurrentTime();
+            try { rate = ytPlayer.getPlaybackRate() || 1; } catch (e) { }
+        } else if (song && song.type === 'youtube' && ytReady) {
             if (ytReady && ytPlayer.getDuration) {
                 duration = ytPlayer.getDuration();
                 currentTime = ytPlayer.getCurrentTime();
@@ -1478,6 +1486,10 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         const song = songs[currentSongIndex];
         if (isPlaying && song && song.type === 'youtube' && ytReady) {
+            // In APK, we might be playing via audioElement (direct stream).
+            // We must pause it so the bridge can take over clearly.
+            if (!audioElement.paused) audioElement.pause();
+
             pendingKickstartIndex = currentSongIndex;
             ytPlayer.loadVideoById(BRIDGE_YOUTUBE_ID);
             ytPlayer.playVideo();
@@ -1540,7 +1552,8 @@ function updateProgress() {
     if (pendingKickstartIndex !== null || (song && song.type === 'youtube' && ytReady)) {
         if (ytReady && ytPlayer.getDuration) {
             current = ytPlayer.getCurrentTime();
-            duration = ytPlayer.getDuration();
+            // Hardcode bridge duration to 3s
+            duration = (pendingKickstartIndex !== null) ? 3 : ytPlayer.getDuration();
         }
     } else if (song && song.type === 'audio') {
         current = audioElement.currentTime;
