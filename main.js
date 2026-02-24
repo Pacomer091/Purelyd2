@@ -1301,12 +1301,8 @@ async function playSong(index, resumeAtSeconds = 0) {
 
         const INNERTUBE_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
         const clients = [
-            { name: 'ANDROID_TESTSUITE', version: '1.9', sdk: 30, ua: 'com.google.android.youtube/1.9 (Linux; U; Android 11) gzip', base: 'https://www.youtube.com' },
-            { name: 'ANDROID_VR', version: '1.57.29', sdk: 30, ua: 'com.google.android.apps.youtube.vr.oculus/1.57.29 (Linux; U; Android 12) gzip', base: 'https://www.youtube.com' },
-            { name: 'ANDROID_MUSIC', version: '7.27.52', sdk: 30, ua: 'com.google.android.apps.youtube.music/7.27.52 (Linux; U; Android 11) gzip', base: 'https://music.youtube.com' },
-            { name: 'ANDROID', version: '19.09.37', sdk: 30, ua: 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip', base: 'https://www.youtube.com' },
-            { name: 'IOS', version: '19.09.3', ua: 'com.google.ios.youtube/19.09.3 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)', base: 'https://www.youtube.com' },
-            { name: 'IOS_MUSIC', version: '7.27.0', ua: 'com.google.ios.youtubemusic/7.27.0 (iPhone14,3; U; CPU iOS 15_6 like Mac OS X)', base: 'https://music.youtube.com' },
+            { name: 'ANDROID', version: '19.09.37', sdk: 30 },
+            { name: 'WEB', version: '2.20240313.05.00' }
         ];
 
         let streamFound = false;
@@ -1323,19 +1319,14 @@ async function playSong(index, resumeAtSeconds = 0) {
                             ...(client.sdk ? { androidSdkVersion: client.sdk } : {}),
                             hl: 'en', gl: 'US'
                         }
-                    },
-                    contentCheckOk: true,
-                    racyCheckOk: true,
+                    }
                 };
 
                 const response = await fetch(
-                    `${client.base}/youtubei/v1/player?key=${INNERTUBE_KEY}`,
+                    `https://music.youtube.com/youtubei/v1/player?key=${INNERTUBE_KEY}`,
                     {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'User-Agent': client.ua
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(body),
                         signal: AbortSignal.timeout(10000)
                     }
