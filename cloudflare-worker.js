@@ -24,35 +24,45 @@ const WORKER_PIPED_INSTANCES = [
 
 export default {
     async fetch(request, env) {
-        if (request.method === 'OPTIONS') {
-            return new Response(null, { headers: WORKER_CORS_HEADERS });
+        try {
+            if (request.method === 'OPTIONS') {
+                return new Response(null, { headers: WORKER_CORS_HEADERS });
+            }
+
+            const url = new URL(request.url);
+
+            if (url.pathname === '/stream') {
+                const videoId = url.searchParams.get('v');
+                if (!videoId) return jsonResponse({ error: 'Missing video ID' }, 400);
+                return await handleStream(videoId);
+            }
+
+            if (url.pathname === '/proxy') {
+                const audioUrl = url.searchParams.get('url');
+                if (!audioUrl) return jsonResponse({ error: 'Missing URL' }, 400);
+                return await handleProxy(audioUrl, request);
+            }
+
+            if (url.pathname === '/search') {
+                const query = url.searchParams.get('q');
+                if (!query) return jsonResponse({ error: 'Missing query' }, 400);
+                return await handleSearch(query);
+            }
+
+            if (url.pathname === '/trending') {
+                return await handleTrending();
+            }
+
+            if (url.pathname === '/playlist') {
+                const listId = url.searchParams.get('list');
+                if (!listId) return jsonResponse({ error: 'Missing playlist ID' }, 400);
+                return await handlePlaylist(listId);
+            }
+
+            return jsonResponse({ routes: ['/stream?v=VIDEO_ID', '/proxy?url=AUDIO_URL', '/search?q=QUERY', '/playlist?list=LIST_ID', '/trending'] }, 200);
+        } catch (e) {
+            return jsonResponse({ status: 'critical_error', message: e.message, stack: e.stack }, 500);
         }
-
-        const url = new URL(request.url);
-
-        if (url.pathname === '/stream') {
-            const videoId = url.searchParams.get('v');
-            if (!videoId) return jsonResponse({ error: 'Missing video ID' }, 400);
-            return handleStream(videoId);
-        }
-
-        if (url.pathname === '/proxy') {
-            const audioUrl = url.searchParams.get('url');
-            if (!audioUrl) return jsonResponse({ error: 'Missing URL' }, 400);
-            return handleProxy(audioUrl, request);
-        }
-
-        if (url.pathname === '/search') {
-            const query = url.searchParams.get('q');
-            if (!query) return jsonResponse({ error: 'Missing query' }, 400);
-            return handleSearch(query);
-        }
-
-        if (url.pathname === '/trending') {
-            return handleTrending();
-        }
-
-        return jsonResponse({ routes: ['/stream?v=VIDEO_ID', '/proxy?url=AUDIO_URL', '/search?q=QUERY', '/playlist?list=LIST_ID', '/trending'] }, 200);
     }
 };
 
@@ -154,13 +164,21 @@ async function handleTrending() {
         if (response.ok) {
             const data = await response.json();
 
-            // Trending music is usually in musicTwoColumnItemRenderer or musicResponsiveListItemRenderer
-            // within various shelf renderers.
-            const sectionList = data.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+            // Support multiple formats for trending music
+            let shelfList = [];
+
+            // Format 1: Direct contents list
+            if (data.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents) {
+                shelfList = data.contents.singleColumnBrowseResultsRenderer.tabs[0].tabRenderer.content.sectionListRenderer.contents;
+            }
+            // Format 2: Direct sectionList
+            else if (data.contents?.sectionListRenderer?.contents) {
+                shelfList = data.contents.sectionListRenderer.contents;
+            }
 
             let allResults = [];
 
-            for (const section of sectionList) {
+            for (const section of shelfList) {
                 const shelf = section.musicCarouselShelfRenderer || section.musicShelfRenderer;
                 if (!shelf || !shelf.contents) continue;
 
@@ -313,14 +331,28 @@ async function handleSearch(query) {
     // === Strategy 3: Piped Search ===
     for (const instance of WORKER_PIPED_INSTANCES.slice(0, 2)) {
         try {
-            const response = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=music_videos`, { signal: AbortSignal.timeout(5000) });
+            const response = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(query)}&filter=music_videos`, { signal: AbortSignal.timeout(5000) });
             if (response.ok) {
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    errors.push(`piped(${instance}): Non-JSON response (${contentType})`);
+                    continue;
+                }
                 const data = await response.json();
-                const items = (data.items || []).slice(0, 10).map(item => ({
-                    id: 'yt-' + item.url.split('v=')[1], title: item.title, artist: item.uploaderName || "YouTube",
-                    url: 'https://www.youtube.com' + item.url, cover: item.thumbnail || "", type: 'youtube'
-                }));
+                const items = (data.items || []).slice(0, 10).map(item => {
+                    if (!item.url) return null;
+                    const vIdMatch = item.url.match(/[?&]v=([^#&?]+)/) || item.url.match(/vi\/([^#&?]+)/) || [null, item.url.split('/').pop()];
+                    const vId = vIdMatch[1] || vIdMatch[0];
+                    if (!vId) return null;
+
+                    return {
+                        id: 'yt-' + vId, title: item.title, artist: item.uploaderName || "YouTube",
+                        url: 'https://www.youtube.com/watch?v=' + vId, cover: item.thumbnail || "", type: 'youtube'
+                    };
+                }).filter(i => i !== null);
                 if (items.length > 0) return jsonResponse({ status: 'ok', source: `piped_${instance}`, results: items });
+            } else {
+                errors.push(`piped(${instance}): HTTP ${response.status}`);
             }
         } catch (e) { errors.push(`piped(${instance}): ${e.message}`); }
     }
