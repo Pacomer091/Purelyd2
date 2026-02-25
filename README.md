@@ -1,61 +1,61 @@
-# <img src="icon.png" width="40" height="40" align="center" /> Purelyd - Your Modern Music Hub
+# <img src="icon.png" width="40" height="40" align="center" /> Purelyd - Tu Hub de Música Moderno
 
 [![GitHub license](https://img.shields.io/github/license/Pacomer091/Purelyd2?style=flat-square&color=ff0000)](https://github.com/Pacomer091/Purelyd2/blob/main/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/Pacomer091/Purelyd2?style=flat-square&color=ff0000)](https://github.com/Pacomer091/Purelyd2/stargazers)
 [![GitHub repo size](https://img.shields.io/github/repo-size/Pacomer091/Purelyd2?style=flat-square&color=ff0000)](https://github.com/Pacomer091/Purelyd2)
 
-**Purelyd** is a lightweight, state-of-the-art web music player designed for speed, elegance, and reliability. It features a modern Home UI, seamless YouTube integration, and cloud synchronization via Supabase.
+**Purelyd** es un reproductor de música web ligero y de vanguardia, diseñado para ofrecer velocidad, elegancia y fiabilidad. Cuenta con una interfaz de inicio moderna, integración fluida con YouTube y sincronización en la nube mediante Supabase.
 
 ---
 
-## ✨ Key Features
+## ✨ Características Principales
 
-- 🏠 **Enhanced Home Experience**: Modern landing page with **Action Cards** (Random, Favorites, All Access).
-- 🔄 **Intelligent Recommended Queue**: Dynamically generated song recommendations that transition seamlessly into your library.
-- 📺 **Stable YouTube Engine**: Powered by the official YouTube IFrame API for rock-solid playback without extraction errors.
-- ☁️ **Cloud Sync & Social**: Full user authentication system and cloud database synchronization via **Supabase**.
-- 📱 **PWA & Mobile Ready**: Fully responsive design with background playback support (MediaSession API) and a lightweight footprint.
-- 🛠️ **Bulk Management**: Easily import large playlists or bulk-delete/favorite songs.
+- 🏠 **Experiencia de Inicio Mejorada**: Página de aterrizaje moderna con **Tarjetas de Acción** (Aleatorio, Favoritos, Acceso Total).
+- 🔄 **Cola de Recomendados Inteligente**: Recomendaciones generadas dinámicamente que transicionan sin interrupciones a tu propia biblioteca.
+- 📺 **Motor de YouTube Estable**: Impulsado por la API oficial de IFrame de YouTube para una reproducción sólida sin errores de extracción.
+- ☁️ **Sincronización en la Nube y Social**: Sistema completo de autenticación de usuarios y sincronización de base de datos en la nube mediante **Supabase**.
+- 📱 **Listo para PWA y Móvil**: Diseño totalmente interactivo con soporte para reproducción en segundo plano (MediaSession API) y un consumo mínimo de recursos.
+- 🛠️ **Gestión Masiva**: Importa grandes listas de reproducción fácilmente o marca favoritos/elimina canciones de forma masiva.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Empezando
 
-### Prerequisites
-- A modern web browser.
-- (Optional) A Supabase account if you want to host your own database.
+### Requisitos Previos
+- Un navegador web moderno.
+- (Opcional) Una cuenta de Supabase si deseas alojar tu propia base de datos.
 
-### Installation
-1. Clone the repository:
+### Instalación
+1. Clona el repositorio:
    ```bash
    git clone https://github.com/Pacomer091/Purelyd2.git
    ```
-2. Open `index.html` in your browser.
-3. Enjoy your music!
+2. Abre `index.html` en tu navegador.
+3. ¡Disfruta de tu música!
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Stack Tecnológico
 
 - **Frontend**: Vanilla JavaScript, HTML5, CSS3.
-- **Backend/Database**: [Supabase](https://supabase.com/).
+- **Backend/Base de Datos**: [Supabase](https://supabase.com/).
 - **API**: [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference).
-- **Styling**: Modern CSS Grid and Flexbox with a glassmorphism aesthetic.
+- **Estilo**: CSS Grid y Flexbox modernos con una estética de glassmorphism.
 
 ---
 
-## 🎨 Design Philosophy
+## 🎨 Filosofía de Diseño
 
-Purelyd prioritizes a **visual-first** experience. The UI is designed to be immersive, using harmonious color gradients, smooth transitions, and a clean layout that puts your music at the center.
+Purelyd prioriza una experiencia **visual-first**. La interfaz está diseñada para ser inmersiva, utilizando gradientes de color armoniosos, transiciones suaves y un diseño limpio que sitúa tu música en el centro.
 
 > [!TIP]
 > Pulse **Ctrl + F5** para asegurarse de que siempre está cargando la última versión del reproductor con los parches de resiliencia más recientes.
 
 ---
 
-## 📄 License
+## 📄 Licencia
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Este proyecto está bajo la Licencia MIT; consulta el archivo [LICENSE](LICENSE) para más detalles.
 
 ---
 
