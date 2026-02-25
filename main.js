@@ -1286,44 +1286,114 @@ async function playSong(index, resumeAtSeconds = 0) {
         }
 
 
-        // Foreground play mode enabled.
-        if (ytReady) {
-            setStatus(`PLAYING YT: ${videoId}`);
+        // v4.1: YouTube Innertube Direct Extraction
+        // Talks DIRECTLY to YouTube's servers — no third-party proxy needed.
+        // Uses the ANDROID client identity to get raw audio stream URLs.
+        setStatus(`FETCHING STREAM: ${videoId}`);
+        playPauseBtn.textContent = '⏸';
+        userWantsToPlay = true;
 
-            // Resilience 13.0: Hard State Reset
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.playbackState = "none";
-                try {
-                    navigator.mediaSession.setPositionState({
-                        duration: 120, // Dummy
-                        playbackRate: 0,
-                        position: 0
-                    });
-                } catch (e) { }
-            }
-            lastProgressSyncSec = -1;
-
-            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext.state === 'suspended') audioContext.resume();
-
-            updateMediaSession(song);
+        // Warm up MediaSession immediately
+        updateMediaSession(song);
+        if ('mediaSession' in navigator) {
             navigator.mediaSession.playbackState = "playing";
+        }
 
-            if (song.type === 'youtube') kickstartYouTubeVisibility();
-            if (resumeAtSeconds > 0) {
-                ytPlayer.loadVideoById({ videoId: videoId, startSeconds: resumeAtSeconds });
-            } else {
-                ytPlayer.loadVideoById(videoId);
+        const INNERTUBE_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+        const clients = [
+            { name: 'ANDROID', version: '19.09.37', sdk: 30 },
+            { name: 'WEB', version: '2.20240313.05.00' }
+        ];
+
+        let streamFound = false;
+        for (const client of clients) {
+            if (streamFound) break;
+            try {
+                setStatus(`TRYING ${client.name} CLIENT...`);
+                const body = {
+                    videoId: videoId,
+                    context: {
+                        client: {
+                            clientName: client.name,
+                            clientVersion: client.version,
+                            ...(client.sdk ? { androidSdkVersion: client.sdk } : {}),
+                            hl: 'en', gl: 'US'
+                        }
+                    }
+                };
+
+                const response = await fetch(
+                    `https://music.youtube.com/youtubei/v1/player?key=${INNERTUBE_KEY}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body),
+                        signal: AbortSignal.timeout(10000)
+                    }
+                );
+
+                if (!response.ok) {
+                    console.warn(`Innertube ${client.name} returned ${response.status}`);
+                    continue;
+                }
+
+                const data = await response.json();
+
+                if (data.playabilityStatus?.status !== 'OK') {
+                    setStatus(`YT STATUS: ${data.playabilityStatus?.status || 'UNKNOWN'}`);
+                    console.warn('Playability:', data.playabilityStatus?.reason);
+                    continue;
+                }
+
+                // Extract audio streams from adaptiveFormats
+                const formats = data.streamingData?.adaptiveFormats || [];
+                const audioFormats = formats
+                    .filter(f => f.mimeType && f.mimeType.startsWith('audio/') && f.url)
+                    .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+
+                if (audioFormats.length > 0) {
+                    const best = audioFormats[0];
+                    const kbps = Math.round(best.bitrate / 1000);
+                    setStatus(`STREAM: ${kbps}kbps ${best.mimeType.split(';')[0]}`);
+                    debugLog(`Audio: ${best.mimeType} @ ${best.bitrate}bps via ${client.name}`);
+
+                    // Play through the existing <audio> element
+                    audioElement.src = best.url;
+                    audioElement.play().then(() => {
+                        isPlaying = true;
+                        userWantsToPlay = true;
+                        if (resumeAtSeconds > 0) {
+                            audioElement.currentTime = resumeAtSeconds;
+                            console.log(`Resuming at ${resumeAtSeconds}s`);
+                        }
+                        setStatus(`PLAYING (${kbps}kbps)`);
+                        if ('mediaSession' in navigator) {
+                            updateMediaSession(song);
+                            navigator.mediaSession.playbackState = "playing";
+                        }
+                        updateMediaSessionPositionState();
+                        startKeepAlive();
+                    }).catch(e => {
+                        setStatus("PLAY ERROR: " + e.message);
+                        console.error("Stream playback error:", e);
+                    });
+
+                    streamFound = true;
+                } else {
+                    setStatus("NO AUDIO IN RESPONSE");
+                    debugLog("Formats: " + formats.length + ", audio: 0");
+                }
+            } catch (e) {
+                console.warn(`Innertube ${client.name} failed:`, e.message);
+                setStatus(`${client.name} FAILED: ${e.message.substring(0, 30)}`);
+                continue;
             }
-            userWantsToPlay = true;
-            isPlaying = false;
-            playPauseBtn.textContent = '⏸';
-        } else {
-            setStatus("WAITING FOR YT PLAYER...");
-            pendingSongId = videoId;
-            userWantsToPlay = true;
-            isPlaying = true;
-            playPauseBtn.textContent = '⏸';
+        }
+
+        if (!streamFound) {
+            setStatus("EXTRACTION FAILED - SKIPPING");
+            debugLog("Failed to extract audio for: " + videoId);
+            setTimeout(() => nextSong(), 2000);
         }
 
         isPlaying = false;
