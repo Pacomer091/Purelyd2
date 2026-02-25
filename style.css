@@ -704,8 +704,6 @@ button[type="submit"]:hover {
         height: 100vh;
         width: 100vw;
         overflow: hidden;
-        padding-top: env(safe-area-inset-top);
-        /* EVITA EL NOTCH */
     }
 
     /* Sidebar as a mobile overlay */
@@ -732,7 +730,7 @@ button[type="submit"]:hover {
     }
 
     .top-bar {
-        padding: calc(12px + env(safe-area-inset-top)) 16px 12px 16px;
+        padding: 12px 16px;
         gap: 12px;
         position: sticky;
         top: 0;
